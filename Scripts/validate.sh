@@ -27,10 +27,14 @@ target_arch="$(uname -m)"
 [[ "$(readlink AGENTS.md)" == "CLAUDE.md" ]]
 plutil -lint Resources/Info.plist >/dev/null
 rg -q 'LSUIElement' Resources/Info.plist
-rg -q 'kVK_Space' Sources/OptionNowApp/HotKeyManager.swift
+rg -q 'kEventHotKeyReleased' Sources/OptionNowApp/HotKeyManager.swift
 rg -q 'RadialLauncherView' Sources/OptionNowApp/LauncherView.swift
 rg -Fq 'NSWorkspace.shared.open(home)' Sources/OptionNowApp/ActionExecutor.swift
+rg -Fq 'com.ivor.sendlingo.show-panel' Sources/OptionNowApp/ApplicationIntegration.swift
+rg -Fq 'SMAppService.mainApp' Sources/OptionNowApp/LoginItemManager.swift
+! rg -q '/Users/ivor/' Sources/OptionNowApp
 ! rg -q 'RoundedRectangle' Sources/OptionNowApp/LauncherView.swift
 [[ ! -e Sources/OptionNowApp/FilesBrowser.swift ]]
+[[ -f Validation/LifecycleValidation.swift ]]
 
 echo "PASS: OptionNow source and project structure validation"

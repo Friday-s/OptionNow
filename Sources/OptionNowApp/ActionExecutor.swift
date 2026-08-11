@@ -26,6 +26,10 @@ final class ActionExecutor {
             openExternalApplication(item)
         case .files:
             openFinder(item)
+        case .folder:
+            openFolder(item)
+        case .url:
+            openURL(item)
         case .recents:
             workspaceController.showRecents()
         case .settings:
@@ -42,14 +46,39 @@ final class ActionExecutor {
         }
     }
 
+    private func openFolder(_ item: ToolItem) {
+        guard let path = item.applicationPath,
+              FileManager.default.fileExists(atPath: path),
+              NSWorkspace.shared.open(URL(fileURLWithPath: path)) else {
+            presentMissingTarget(for: item)
+            return
+        }
+        settings.record(item)
+    }
+
+    private func openURL(_ item: ToolItem) {
+        guard let value = item.applicationPath,
+              let url = URL(string: value),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              NSWorkspace.shared.open(url) else {
+            presentError("无法打开链接")
+            return
+        }
+        settings.record(item)
+    }
+
     private func openExternalApplication(_ item: ToolItem) {
-        guard let path = item.applicationPath, !path.isEmpty else {
+        let integration = ApplicationIntegration.matching(item)
+        let resolvedURL = integration?.resolveURL(savedPath: item.applicationPath)
+            ?? item.applicationPath.map(URL.init(fileURLWithPath:))
+
+        guard let url = resolvedURL else {
             presentMissingTarget(for: item)
             return
         }
 
-        let url = URL(fileURLWithPath: path)
-        guard FileManager.default.fileExists(atPath: path) else {
+        guard FileManager.default.fileExists(atPath: url.path) else {
             presentMissingTarget(for: item)
             return
         }
@@ -60,23 +89,11 @@ final class ActionExecutor {
             Task { @MainActor in
                 if error == nil {
                     self?.settings.record(item)
-                    self?.showExternalPanelIfSupported(item)
+                    integration?.revealPanel()
                 } else {
                     self?.presentError("无法打开 \(item.name)")
                 }
             }
-        }
-    }
-
-    private func showExternalPanelIfSupported(_ item: ToolItem) {
-        guard item.name.localizedCaseInsensitiveContains("orbit") else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            DistributedNotificationCenter.default().postNotificationName(
-                Notification.Name("com.ivor.workbench-orbit.show-panel"),
-                object: nil,
-                userInfo: nil,
-                deliverImmediately: true
-            )
         }
     }
 

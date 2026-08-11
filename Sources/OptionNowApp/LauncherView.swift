@@ -2,24 +2,36 @@ import SwiftUI
 
 struct LauncherView: View {
     @ObservedObject var settings: SettingsStore
+    @ObservedObject var interaction: LauncherInteractionState
     let onSelect: (ToolItem) -> Void
 
     var body: some View {
         RadialLauncherView(
             items: settings.enabledItems,
             capacity: settings.sectorCount,
+            settings: settings,
+            interaction: interaction,
             onSelect: onSelect
         )
         .frame(width: 320, height: 320)
+        .preferredColorScheme(preferredColorScheme)
+    }
+
+    private var preferredColorScheme: ColorScheme? {
+        switch settings.launcherTheme {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
     }
 }
 
 private struct RadialLauncherView: View {
     let items: [ToolItem]
     let capacity: Int
+    @ObservedObject var settings: SettingsStore
+    @ObservedObject var interaction: LauncherInteractionState
     let onSelect: (ToolItem) -> Void
-    @State private var highlightedID: UUID?
-    @State private var currentPage = 0
 
     private var pages: [[ToolItem]] {
         guard capacity > 0 else { return [items] }
@@ -30,13 +42,14 @@ private struct RadialLauncherView: View {
 
     private var visibleItems: [ToolItem] {
         guard !pages.isEmpty else { return [] }
-        return pages[min(currentPage, pages.count - 1)]
+        return pages[min(interaction.currentPage, pages.count - 1)]
     }
 
     var body: some View {
         ZStack {
             Circle()
                 .fill(.ultraThinMaterial)
+                .opacity(settings.panelOpacity)
                 .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
 
             ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
@@ -44,14 +57,20 @@ private struct RadialLauncherView: View {
                 let start = Angle.degrees(-90 + Double(index) * 360 / Double(count))
                 let end = Angle.degrees(-90 + Double(index + 1) * 360 / Double(count))
                 Wedge(startAngle: start, endAngle: end, innerRatio: 0.43)
-                    .fill(highlightedID == item.id ? Color.purple : Color.primary.opacity(0.07))
+                    .fill(interaction.highlightedID == item.id ? accentColor : Color.primary.opacity(0.07))
                     .overlay {
                         Wedge(startAngle: start, endAngle: end, innerRatio: 0.43)
                             .stroke(Color.primary.opacity(0.12), lineWidth: 1)
                     }
                     .allowsHitTesting(false)
 
-                RadialItemLabel(item: item, index: index, count: count, highlighted: highlightedID == item.id)
+                RadialItemLabel(
+                    item: item,
+                    index: index,
+                    count: count,
+                    highlighted: interaction.highlightedID == item.id,
+                    iconSize: settings.iconSize
+                )
             }
 
             Circle()
@@ -69,18 +88,28 @@ private struct RadialLauncherView: View {
             case .active(let location):
                 updateHighlight(at: location, size: 300)
             case .ended:
-                highlightedID = nil
+                if !settings.releaseToSelect { interaction.highlightedID = nil }
             }
         }
         .onTapGesture {
             guard let highlightedItem else { return }
             onSelect(highlightedItem)
         }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 32).onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                interaction.changePage(
+                    in: items,
+                    capacity: capacity,
+                    delta: value.translation.width < 0 ? 1 : -1
+                )
+            }
+        )
         .padding(10)
     }
 
     private var highlightedItem: ToolItem? {
-        visibleItems.first(where: { $0.id == highlightedID })
+        visibleItems.first(where: { $0.id == interaction.highlightedID })
     }
 
     private func updateHighlight(at location: CGPoint, size: CGFloat) {
@@ -90,10 +119,10 @@ private struct RadialLauncherView: View {
             size: Double(size),
             count: visibleItems.count
         ) else {
-            highlightedID = nil
+            interaction.highlightedID = nil
             return
         }
-        highlightedID = visibleItems[index].id
+        interaction.highlightedID = visibleItems[index].id
     }
 
     @ViewBuilder
@@ -103,12 +132,12 @@ private struct RadialLauncherView: View {
                 .font(.system(size: highlightedItem == nil ? 14 : 16, weight: .semibold, design: .rounded))
             if pages.count > 1, highlightedItem == nil {
                 HStack(spacing: 8) {
-                    Button { currentPage = max(0, currentPage - 1) } label: { Image(systemName: "chevron.left") }
-                        .disabled(currentPage == 0)
-                    Text("\(currentPage + 1)/\(pages.count)")
+                    Button { interaction.changePage(in: items, capacity: capacity, delta: -1) } label: { Image(systemName: "chevron.left") }
+                        .disabled(interaction.currentPage == 0)
+                    Text("\(interaction.currentPage + 1)/\(pages.count)")
                         .font(.caption.monospacedDigit())
-                    Button { currentPage = min(pages.count - 1, currentPage + 1) } label: { Image(systemName: "chevron.right") }
-                        .disabled(currentPage == pages.count - 1)
+                    Button { interaction.changePage(in: items, capacity: capacity, delta: 1) } label: { Image(systemName: "chevron.right") }
+                        .disabled(interaction.currentPage == pages.count - 1)
                 }
                 .buttonStyle(.plain)
             } else {
@@ -118,6 +147,15 @@ private struct RadialLauncherView: View {
             }
         }
     }
+
+    private var accentColor: Color {
+        switch settings.launcherAccent {
+        case .purple: .purple
+        case .blue: .blue
+        case .pink: .pink
+        case .orange: .orange
+        }
+    }
 }
 
 private struct RadialItemLabel: View {
@@ -125,6 +163,7 @@ private struct RadialItemLabel: View {
     let index: Int
     let count: Int
     let highlighted: Bool
+    let iconSize: Double
 
     var body: some View {
         let angle = -90 + (Double(index) + 0.5) * 360 / Double(max(count, 1))
@@ -133,7 +172,7 @@ private struct RadialItemLabel: View {
         VStack(spacing: 4) {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: item.symbol)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.system(size: iconSize, weight: .medium))
                 if isMissingExternalApplication {
                     Image(systemName: "exclamationmark.circle.fill")
                         .font(.system(size: 9))

@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 final class WorkspaceWindowController: NSWindowController {
     private let settings: SettingsStore
+    var onSelectRecent: ((ToolItem) -> Void)?
 
     init(settings: SettingsStore) {
         self.settings = settings
@@ -24,7 +25,15 @@ final class WorkspaceWindowController: NSWindowController {
     func showRecents() {
         guard let window else { return }
         window.title = "OptionNow — 最近使用"
-        window.contentView = NSHostingView(rootView: RecentsView(settings: settings))
+        window.contentView = NSHostingView(
+            rootView: RecentsView(
+                settings: settings,
+                onSelect: { [weak self] item in
+                    self?.window?.orderOut(nil)
+                    self?.onSelectRecent?(item)
+                }
+            )
+        )
         showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -33,19 +42,31 @@ final class WorkspaceWindowController: NSWindowController {
 
 private struct RecentsView: View {
     @ObservedObject var settings: SettingsStore
+    let onSelect: (ToolItem) -> Void
 
     var body: some View {
         Group {
             if settings.recentActions.isEmpty {
                 ContentUnavailableView("暂无最近使用", systemImage: "clock")
             } else {
-                List(settings.recentActions) { action in
+                VStack(spacing: 0) {
                     HStack {
-                        Image(systemName: "clock")
-                        Text(action.name)
                         Spacer()
-                        Text(action.date, style: .relative)
-                            .foregroundStyle(.secondary)
+                        Button("清空") { settings.clearRecents() }
+                    }
+                    .padding(.horizontal)
+                    List(settings.recentActions) { action in
+                        Button { onSelect(action.item) } label: {
+                            HStack {
+                                Image(systemName: action.item.symbol)
+                                Text(action.name)
+                                Spacer()
+                                Text(action.date, style: .relative)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
