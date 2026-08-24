@@ -58,11 +58,18 @@ final class RecorderView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        let bounds = self.bounds.insetBy(dx: 0.5, dy: 0.5)
-        let path = NSBezierPath(roundedRect: bounds, xRadius: 7, yRadius: 7)
-        (isRecording ? NSColor.controlAccentColor.withAlphaComponent(0.18) : NSColor.controlBackgroundColor).setFill()
+        // Same tokens as the SwiftUI controls next to it: chip radius, hairline
+        // stroke, accent wash while recording.
+        let bounds = self.bounds.insetBy(dx: DS.Stroke.hairline, dy: DS.Stroke.hairline)
+        let path = NSBezierPath(
+            roundedRect: bounds,
+            xRadius: DS.Radius.chip,
+            yRadius: DS.Radius.chip
+        )
+        (isRecording ? NSColor(DS.Color.accentSoft) : NSColor(DS.Color.card)).setFill()
         path.fill()
-        NSColor.separatorColor.setStroke()
+        NSColor(isRecording ? DS.Color.accent : DS.Color.strokeStrong).setStroke()
+        path.lineWidth = DS.Stroke.border
         path.stroke()
 
         let text = isRecording ? "请按新的快捷键" : configuration.displayName

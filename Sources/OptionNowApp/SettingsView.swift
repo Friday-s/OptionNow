@@ -7,13 +7,18 @@ struct SettingsView: View {
         Form {
             if let message = settings.configurationMessage {
                 Section {
-                    HStack(spacing: 10) {
+                    HStack(spacing: DS.Space.md) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(DS.Color.warning)
                         Text(message)
-                        Spacer()
+                            .font(DS.Font.body())
+                            .foregroundStyle(DS.Color.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: DS.Space.sm)
                         Button("关闭") { settings.configurationMessage = nil }
+                            .buttonStyle(DSSecondaryButtonStyle())
                     }
+                    .padding(.vertical, DS.Space.xs)
                 }
             }
 
@@ -23,12 +28,14 @@ struct SettingsView: View {
                 }
                 if settings.hotKeyConflict {
                     Label("这个快捷键已被其他应用占用，OptionNow 保留原快捷键。", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                        .font(DS.Font.caption())
+                        .foregroundStyle(DS.Color.warning)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("点击快捷键框，然后按下带 ⌃、⌥、⇧ 或 ⌘ 的新组合。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(DS.Font.caption())
+                        .foregroundStyle(DS.Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Toggle("登录时自动启动", isOn: $settings.launchAtLogin)
                 Toggle("点击圆盘外侧后关闭", isOn: $settings.closeOnDeactivate)
@@ -61,8 +68,9 @@ struct SettingsView: View {
                         .frame(width: 220)
                 }
                 Text("方向键选择，Return 打开，Esc 关闭；滚轮或左右滑动可切换分页。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DS.Font.caption())
+                    .foregroundStyle(DS.Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Section("工具") {
@@ -91,11 +99,13 @@ private struct ToolEditorRow: View {
     private var index: Int? { settings.toolItems.firstIndex(where: { $0.id == item.id }) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: DS.Space.sm) {
+            HStack(spacing: DS.Space.md) {
                 Toggle("", isOn: $item.isEnabled)
                     .labelsHidden()
                 Image(systemName: item.symbol)
+                    .font(DS.Font.body())
+                    .foregroundStyle(DS.Color.accent)
                     .frame(width: 22)
                 TextField("名称", text: $item.name)
                     .frame(width: 120)
@@ -110,24 +120,28 @@ private struct ToolEditorRow: View {
                     .labelsHidden()
                     .frame(width: 90)
                 }
-                Spacer()
+                Spacer(minLength: DS.Space.sm)
                 Button { settings.moveTool(id: item.id, offset: -1) } label: { Image(systemName: "chevron.up") }
+                    .buttonStyle(DSIconButtonStyle(size: 24))
                     .disabled(index == 0)
                 Button { settings.moveTool(id: item.id, offset: 1) } label: { Image(systemName: "chevron.down") }
+                    .buttonStyle(DSIconButtonStyle(size: 24))
                     .disabled(index == settings.toolItems.count - 1)
                 if isCustom {
                     Button(role: .destructive) { settings.removeTool(id: item.id) } label: {
                         Image(systemName: "trash")
+                            .foregroundStyle(DS.Color.danger)
                     }
+                    .buttonStyle(DSIconButtonStyle(size: 24))
                 }
             }
 
-            HStack {
+            HStack(spacing: DS.Space.sm) {
                 Spacer().frame(width: 38)
                 targetEditor
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, DS.Space.xs)
     }
 
     @ViewBuilder
@@ -135,25 +149,35 @@ private struct ToolEditorRow: View {
         switch item.kind {
         case .externalApplication:
             Text(settings.applicationStatus(for: item))
-                .foregroundStyle(settings.applicationStatus(for: item) == "未绑定" ? Color.red : Color.secondary)
+                .font(DS.Font.caption())
+                .foregroundStyle(settings.applicationStatus(for: item) == "未绑定" ? DS.Color.danger : DS.Color.textSecondary)
                 .lineLimit(1)
-            Spacer()
+                .truncationMode(.middle)
+            Spacer(minLength: DS.Space.sm)
             Button("选择应用…") { settings.chooseApplication(for: item.id) }
+                .buttonStyle(DSSecondaryButtonStyle())
+                .fixedSize()
         case .folder:
             Text(item.applicationPath ?? "未选择文件夹")
-                .foregroundStyle(item.applicationPath == nil ? Color.red : Color.secondary)
+                .font(DS.Font.caption())
+                .foregroundStyle(item.applicationPath == nil ? DS.Color.danger : DS.Color.textSecondary)
                 .lineLimit(1)
-            Spacer()
+                .truncationMode(.middle)
+            Spacer(minLength: DS.Space.sm)
             Button("选择文件夹…") { settings.chooseFolder(for: item.id) }
+                .buttonStyle(DSSecondaryButtonStyle())
+                .fixedSize()
         case .url:
             TextField("https://", text: Binding(
                 get: { item.applicationPath ?? "" },
                 set: { item.applicationPath = $0 }
             ))
+            .font(DS.Font.caption())
         case .files, .recents, .settings:
             Text(settings.applicationStatus(for: item))
-                .foregroundStyle(.secondary)
-            Spacer()
+                .font(DS.Font.caption())
+                .foregroundStyle(DS.Color.textSecondary)
+            Spacer(minLength: DS.Space.sm)
         }
     }
 }

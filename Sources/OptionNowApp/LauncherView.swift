@@ -47,20 +47,28 @@ private struct RadialLauncherView: View {
 
     var body: some View {
         ZStack {
+            // The dial is the family's reference surface: native glass, a hairline
+            // edge and one diffuse shadow — the same recipe `dsPanel()` applies to
+            // every other window in the family.
             Circle()
-                .fill(.ultraThinMaterial)
+                .fill(DS.reduceTransparency ? AnyShapeStyle(DS.Color.bg) : AnyShapeStyle(.ultraThinMaterial))
                 .opacity(settings.panelOpacity)
+                .background(Circle().fill(DS.Color.surface).opacity(settings.panelOpacity))
                 .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
 
             ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
                 let count = max(visibleItems.count, 1)
                 let start = Angle.degrees(-90 + Double(index) * 360 / Double(count))
                 let end = Angle.degrees(-90 + Double(index + 1) * 360 / Double(count))
+                let highlighted = interaction.highlightedID == item.id
                 Wedge(startAngle: start, endAngle: end, innerRatio: 0.43)
-                    .fill(interaction.highlightedID == item.id ? accentColor : Color.primary.opacity(0.07))
+                    .fill(highlighted ? accentColor : DS.Color.card)
                     .overlay {
                         Wedge(startAngle: start, endAngle: end, innerRatio: 0.43)
-                            .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                            .stroke(
+                                highlighted ? accentColor.opacity(0.4) : DS.Color.stroke,
+                                lineWidth: DS.Stroke.border
+                            )
                     }
                     .allowsHitTesting(false)
 
@@ -68,18 +76,19 @@ private struct RadialLauncherView: View {
                     item: item,
                     index: index,
                     count: count,
-                    highlighted: interaction.highlightedID == item.id,
+                    highlighted: highlighted,
                     iconSize: settings.iconSize
                 )
             }
 
             Circle()
-                .fill(.regularMaterial)
+                .fill(DS.reduceTransparency ? AnyShapeStyle(DS.Color.bg) : AnyShapeStyle(.regularMaterial))
                 .frame(width: 116, height: 116)
+                .overlay { Circle().strokeBorder(DS.Color.stroke, lineWidth: DS.Stroke.hairline) }
                 .overlay { centerContent }
 
             Circle()
-                .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                .strokeBorder(DS.Color.stroke, lineWidth: DS.Stroke.border)
         }
         .frame(width: 300, height: 300)
         .contentShape(Circle())
@@ -127,33 +136,38 @@ private struct RadialLauncherView: View {
 
     @ViewBuilder
     private var centerContent: some View {
-        VStack(spacing: 4) {
-            Text(highlightedItem?.name ?? "OPTIONNOW")
-                .font(.system(size: highlightedItem == nil ? 14 : 16, weight: .semibold, design: .rounded))
+        VStack(spacing: DS.Space.xs) {
+            Text(highlightedItem?.name ?? "OptionNow")
+                .font(highlightedItem == nil ? DS.Font.h4() : DS.Font.h3())
+                .foregroundStyle(DS.Color.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, DS.Space.sm)
             if pages.count > 1, highlightedItem == nil {
-                HStack(spacing: 8) {
+                HStack(spacing: DS.Space.sm) {
                     Button { interaction.changePage(in: items, capacity: capacity, delta: -1) } label: { Image(systemName: "chevron.left") }
                         .disabled(interaction.currentPage == 0)
                     Text("\(interaction.currentPage + 1)/\(pages.count)")
-                        .font(.caption.monospacedDigit())
+                        .font(DS.Font.caption().monospacedDigit())
+                        .foregroundStyle(DS.Color.textSecondary)
                     Button { interaction.changePage(in: items, capacity: capacity, delta: 1) } label: { Image(systemName: "chevron.right") }
                         .disabled(interaction.currentPage == pages.count - 1)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(DSIconButtonStyle(size: 20))
             } else {
                 Text(highlightedItem == nil ? "⌥ Space" : "点击打开")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(DS.Font.caption())
+                    .foregroundStyle(DS.Color.textSecondary)
             }
         }
     }
 
     private var accentColor: Color {
         switch settings.launcherAccent {
-        case .purple: .purple
-        case .blue: .blue
-        case .pink: .pink
-        case .orange: .orange
+        case .purple: DS.Color.accent
+        case .blue: DS.Color.accentBlue
+        case .pink: DS.Color.accentPink
+        case .orange: DS.Color.accentOrange
         }
     }
 }
@@ -169,22 +183,23 @@ private struct RadialItemLabel: View {
         let angle = -90 + (Double(index) + 0.5) * 360 / Double(max(count, 1))
         let radians = angle * .pi / 180
         let radius = 112.0
-        VStack(spacing: 4) {
+        VStack(spacing: DS.Space.xs) {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: item.symbol)
                     .font(.system(size: iconSize, weight: .medium))
                 if isMissingExternalApplication {
                     Image(systemName: "exclamationmark.circle.fill")
                         .font(.system(size: 9))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(highlighted ? DS.Color.onAccent : DS.Color.warning)
                         .offset(x: 7, y: -5)
                 }
             }
             Text(item.name)
-                .font(.caption2)
+                .font(DS.Font.caption())
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        .foregroundStyle(highlighted ? Color.white : Color.primary)
+        .foregroundStyle(highlighted ? DS.Color.onAccent : DS.Color.textPrimary)
         .frame(width: 72)
         .offset(x: cos(radians) * radius, y: sin(radians) * radius)
         .allowsHitTesting(false)

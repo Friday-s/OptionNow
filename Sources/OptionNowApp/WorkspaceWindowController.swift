@@ -47,30 +47,77 @@ private struct RecentsView: View {
     var body: some View {
         Group {
             if settings.recentActions.isEmpty {
-                ContentUnavailableView("暂无最近使用", systemImage: "clock")
+                ContentUnavailableView {
+                    Label("暂无最近使用", systemImage: "clock")
+                } description: {
+                    Text("打开过的工具会出现在这里。")
+                        .font(DS.Font.body())
+                        .foregroundStyle(DS.Color.textSecondary)
+                }
             } else {
                 VStack(spacing: 0) {
                     HStack {
-                        Spacer()
+                        Text("最近使用")
+                            .font(DS.Font.h3())
+                            .foregroundStyle(DS.Color.textPrimary)
+                        Spacer(minLength: DS.Space.sm)
                         Button("清空") { settings.clearRecents() }
+                            .buttonStyle(DSSecondaryButtonStyle())
+                            .fixedSize()
                     }
-                    .padding(.horizontal)
-                    List(settings.recentActions) { action in
-                        Button { onSelect(action.item) } label: {
-                            HStack {
-                                Image(systemName: action.item.symbol)
-                                Text(action.name)
-                                Spacer()
-                                Text(action.date, style: .relative)
-                                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, DS.Space.lg)
+                    .padding(.vertical, DS.Space.md)
+
+                    ScrollView {
+                        VStack(spacing: DS.Space.xs) {
+                            ForEach(settings.recentActions) { action in
+                                RecentRow(action: action) { onSelect(action.item) }
                             }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .padding(.horizontal, DS.Space.lg)
+                        .padding(.bottom, DS.Space.lg)
                     }
                 }
             }
         }
         .frame(minWidth: 520, minHeight: 360)
+        .background(DS.Color.bg)
+    }
+}
+
+private struct RecentRow: View {
+    let action: RecentAction
+    let onSelect: () -> Void
+
+    @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: DS.Space.md) {
+                Image(systemName: action.item.symbol)
+                    .font(DS.Font.body())
+                    .foregroundStyle(DS.Color.accent)
+                    .frame(width: 20)
+                Text(action.name)
+                    .font(DS.Font.body())
+                    .foregroundStyle(DS.Color.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: DS.Space.sm)
+                Text(action.date, style: .relative)
+                    .font(DS.Font.caption())
+                    .foregroundStyle(DS.Color.textSecondary)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .padding(.horizontal, DS.Space.md)
+            .padding(.vertical, DS.Space.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .dsCard(hovering ? DS.Color.cardElevated : DS.Color.card)
+            .contentShape(DS.cardShape)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovering)
     }
 }

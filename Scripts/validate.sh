@@ -31,6 +31,7 @@ rg -q 'kEventHotKeyReleased' Sources/OptionNowApp/HotKeyManager.swift
 rg -q 'RadialLauncherView' Sources/OptionNowApp/LauncherView.swift
 rg -Fq 'NSWorkspace.shared.open(home)' Sources/OptionNowApp/ActionExecutor.swift
 rg -Fq 'com.ivor.sendlingo.show-panel' Sources/OptionNowApp/ApplicationIntegration.swift
+rg -Fq 'com.ivor.sendlingo.hide-panel' Sources/OptionNowApp/ApplicationIntegration.swift
 rg -Fq 'SMAppService.mainApp' Sources/OptionNowApp/LoginItemManager.swift
 ! rg -q '/Users/ivor/' Sources/OptionNowApp
 ! rg -q 'RoundedRectangle' Sources/OptionNowApp/LauncherView.swift
