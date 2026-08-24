@@ -6,6 +6,8 @@ private struct ApplicationSpec {
     let name: String
     let bundleIdentifier: String
     let showNotification: Notification.Name?
+    let hideNotification: Notification.Name?
+    let terminateWhenHiding: Bool
 }
 
 @main
@@ -14,17 +16,23 @@ struct LifecycleValidation {
         ApplicationSpec(
             name: "Orbit",
             bundleIdentifier: "com.ivor.workbench-orbit",
-            showNotification: Notification.Name("com.ivor.workbench-orbit.show-panel")
+            showNotification: Notification.Name("com.ivor.workbench-orbit.show-panel"),
+            hideNotification: Notification.Name("com.ivor.workbench-orbit.hide-panel"),
+            terminateWhenHiding: false
         ),
         ApplicationSpec(
             name: "SendLingo",
             bundleIdentifier: "com.ivor.sendlingo",
-            showNotification: Notification.Name("com.ivor.sendlingo.show-panel")
+            showNotification: Notification.Name("com.ivor.sendlingo.show-panel"),
+            hideNotification: Notification.Name("com.ivor.sendlingo.hide-panel"),
+            terminateWhenHiding: false
         ),
         ApplicationSpec(
             name: "ClipMate",
             bundleIdentifier: "com.ivor.clipmate",
-            showNotification: nil
+            showNotification: nil,
+            hideNotification: nil,
+            terminateWhenHiding: true
         )
     ]
 
@@ -65,6 +73,27 @@ struct LifecycleValidation {
             let visible = await waitUntil { hasVisibleWindow(spec) }
             print("\(visible ? "PASS" : "FAIL"): \(spec.name) 从其他窗口切回并显示")
             if !visible { failures += 1 }
+
+            await hide(spec)
+            let hidden = if spec.terminateWhenHiding {
+                await waitUntil { running(spec) == nil }
+            } else {
+                await waitUntil { !hasVisibleWindow(spec) }
+            }
+            print("\(hidden ? "PASS" : "FAIL"): \(spec.name) 再次点击后关闭窗口")
+            if !hidden { failures += 1 }
+
+            if running(spec) == nil {
+                do { try await launch(url) }
+                catch {
+                    print("FAIL: \(spec.name) 关闭后再次启动失败 — \(error.localizedDescription)")
+                    failures += 1
+                }
+            }
+            await reveal(spec)
+            let shownAgain = await waitUntil { hasVisibleWindow(spec) }
+            print("\(shownAgain ? "PASS" : "FAIL"): \(spec.name) 关闭后再次显示")
+            if !shownAgain { failures += 1 }
 
             await terminate(spec)
             do {
@@ -123,6 +152,21 @@ struct LifecycleValidation {
             }
         } else {
             running(spec)?.activate(options: [.activateAllWindows])
+        }
+    }
+
+    private static func hide(_ spec: ApplicationSpec) async {
+        if spec.terminateWhenHiding {
+            running(spec)?.terminate()
+        } else if let notification = spec.hideNotification {
+            DistributedNotificationCenter.default().postNotificationName(
+                notification,
+                object: nil,
+                userInfo: nil,
+                deliverImmediately: true
+            )
+        } else {
+            running(spec)?.hide()
         }
     }
 

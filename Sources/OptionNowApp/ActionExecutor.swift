@@ -83,6 +83,36 @@ final class ActionExecutor {
             return
         }
 
+        if let integration, integration.isPanelVisible {
+            integration.hidePanel()
+            return
+        }
+        if integration == nil,
+           let bundleIdentifier = Bundle(url: url)?.bundleIdentifier,
+           let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first,
+           ApplicationIntegration.hasVisibleWindow(for: running) {
+            running.hide()
+            return
+        }
+
+        if let integration,
+           integration.terminateWhenClosing,
+           integration.runningApplication != nil {
+            Task { [weak self] in
+                await integration.terminateHiddenInstance()
+                self?.launchApplication(at: url, item: item, integration: integration)
+            }
+            return
+        }
+
+        launchApplication(at: url, item: item, integration: integration)
+    }
+
+    private func launchApplication(
+        at url: URL,
+        item: ToolItem,
+        integration: ApplicationIntegration?
+    ) {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { [weak self] _, error in

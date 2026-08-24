@@ -19,6 +19,13 @@ enum OptionNowSelfTest {
         let sendLingo = ToolItem.defaults.first { $0.integrationID == "sendlingo" }!
         check("SendLingo 使用稳定集成 ID", ApplicationIntegration.matching(sendLingo)?.bundleIdentifier == "com.ivor.sendlingo")
 
+        let clipMate = ToolItem.defaults.first { $0.integrationID == "clipmate" }!
+        let clipMateIntegration = ApplicationIntegration.matching(clipMate)
+        check(
+            "ClipMate 隐藏实例使用重启策略",
+            clipMateIntegration?.terminateWhenClosing == true && clipMateIntegration?.showPanelNotification == nil
+        )
+
         let recent = RecentAction(item: sendLingo)
         let recentRoundTrip = try? JSONDecoder().decode(
             RecentAction.self,
